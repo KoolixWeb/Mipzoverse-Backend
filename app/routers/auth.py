@@ -142,7 +142,7 @@ async def forgot_password(request: ForgotPasswordRequest):
     )
     
     # Send email
-    email_sent = send_reset_code_email(request.email, reset_code)
+    email_sent = await send_reset_code_email(request.email, reset_code)
     
     if not email_sent:
         raise HTTPException(

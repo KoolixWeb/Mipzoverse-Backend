@@ -20,7 +20,15 @@ async def create_indexes():
         # Create unique index on email field
         await users_collection.create_index("email", unique=True, sparse=True)
         print("✓ Created unique index on 'email' field")
-                       
+        
+        # Optional: Create index on mobile for faster lookups (non-unique)
+        await users_collection.create_index("mobile")
+        print("✓ Created index on 'mobile' field")
+        
+        # Optional: Create index on oauth_provider and oauth_id for OAuth users
+        await users_collection.create_index([("oauth_provider", 1), ("oauth_id", 1)], sparse=True)
+        print("✓ Created compound index on 'oauth_provider' and 'oauth_id' fields")
+        
     except OperationFailure as e:
         print(f"✗ Error creating indexes: {e}")
         raise
@@ -59,11 +67,11 @@ async def load_email_templates():
         
         template_data = {
             "template_name": "reset_password",
-            "subject": "Password Reset Code",
+            "subject": "Password Reset Code - Secure Your Account",
             "html_content": html_content,
             "text_content": text_content,
-            "variables": ["RESET_CODE"],
-            "description": "Template for password reset emails"
+            "variables": ["RESET_CODE", "LOGO_URL"],
+            "description": "Template for password reset emails with brand colors and logo"
         }
         
         if existing_template:
@@ -77,6 +85,18 @@ async def load_email_templates():
             # Insert new template
             await email_templates_collection.insert_one(template_data)
             print("✓ Inserted 'reset_password' email template")
+        
+        # Verify template was saved correctly
+        saved_template = await email_templates_collection.find_one({"template_name": "reset_password"})
+        if saved_template:
+            # Check for placeholders
+            has_logo = "{{LOGO_URL}}" in saved_template["html_content"]
+            has_code = "{{RESET_CODE}}" in saved_template["html_content"]
+            print(f"  - Contains {{{{LOGO_URL}}}}: {'✓' if has_logo else '✗'}")
+            print(f"  - Contains {{{{RESET_CODE}}}}: {'✓' if has_code else '✗'}")
+            print(f"  - HTML content length: {len(saved_template['html_content'])} chars")
+        else:
+            print("  ✗ Warning: Could not verify saved template")
         
     except FileNotFoundError as e:
         print(f"✗ Template file not found: {e}")
