@@ -1,11 +1,3 @@
-"""
-Database Setup Script
-Run this script once to initialize the database with required indexes and configurations.
-
-Usage:
-    python setup.py
-"""
-
 import asyncio
 from database import users_collection
 from pymongo.errors import OperationFailure

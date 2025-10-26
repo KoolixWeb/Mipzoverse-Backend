@@ -19,10 +19,16 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
-class UserLogin(UserBase):
+class UserLogin(BaseModel):
+    email: EmailStr
     password: str
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: str | None = None
+
+class UserResponse(BaseModel):
+    email: str
+    mobile: str
+    role: str

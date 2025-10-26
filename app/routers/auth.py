@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from database import users_collection
-from schemas.user import UserCreate, UserLogin, Token
+from schemas.user import UserCreate, UserLogin, Token, UserResponse
 from utils.security import hash_password, verify_password, create_access_token, create_refresh_token, get_token_response
 from bson import ObjectId
 from jose import jwt, JWTError
@@ -26,8 +26,7 @@ async def register(user: UserCreate):
         "email": user.email,
         "mobile": user.mobile,
         "hashed_password": hashed_password,
-        "oauth_provider": None,
-        "oauth_id": None
+        "role": "student"  # Set role as student for all registrations
     }
     
     result = await users_collection.insert_one(user_dict)
@@ -41,16 +40,13 @@ async def register(user: UserCreate):
 
 @router.post("/login", response_model=Token)
 async def login(user: UserLogin):
-    # Find user by both email and mobile
-    db_user = await users_collection.find_one({
-        "email": user.email,
-        "mobile": user.mobile
-    })
+    # Find user by email only
+    db_user = await users_collection.find_one({"email": user.email})
     
-    if not db_user or db_user.get("oauth_provider"):
+    if not db_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials or use OAuth login",
+            detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -82,11 +78,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-@router.get("/me", response_model=dict)
+@router.get("/me", response_model=UserResponse)
 async def get_me(current_user: dict = Depends(get_current_user)):
     return {
         "email": current_user["email"],
         "mobile": current_user["mobile"],
-        "oauth_provider": current_user.get("oauth_provider"),
-        "oauth_id": current_user.get("oauth_id")
+        "role": current_user["role"]
     }
