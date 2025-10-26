@@ -24,11 +24,12 @@ async def register(user: UserCreate):
     hashed_password = hash_password(user.password)
     user_dict = {
         "email": user.email,
+        "mobile": user.mobile,
         "hashed_password": hashed_password,
-        # Allow for OAuth fields to coexist
         "oauth_provider": None,
         "oauth_id": None
     }
+    
     result = await users_collection.insert_one(user_dict)
     user_id = str(result.inserted_id)
 
@@ -40,8 +41,12 @@ async def register(user: UserCreate):
 
 @router.post("/login", response_model=Token)
 async def login(user: UserLogin):
-    # Find user by email
-    db_user = await users_collection.find_one({"email": user.email})
+    # Find user by both email and mobile
+    db_user = await users_collection.find_one({
+        "email": user.email,
+        "mobile": user.mobile
+    })
+    
     if not db_user or db_user.get("oauth_provider"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -81,6 +86,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 async def get_me(current_user: dict = Depends(get_current_user)):
     return {
         "email": current_user["email"],
+        "mobile": current_user["mobile"],
         "oauth_provider": current_user.get("oauth_provider"),
         "oauth_id": current_user.get("oauth_id")
     }
