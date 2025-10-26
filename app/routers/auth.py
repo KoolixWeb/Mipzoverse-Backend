@@ -1,15 +1,17 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Form
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from database import users_collection
 from schemas.user import UserCreate, UserLogin, Token, UserResponse
 from utils.security import hash_password, verify_password, create_access_token, create_refresh_token
 from bson import ObjectId
 from jose import jwt, JWTError
 from config import settings
-from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+# Use OAuth2PasswordBearer with correct tokenUrl
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 @router.post("/register", response_model=Token)
 async def register(user: UserCreate):
@@ -28,7 +30,7 @@ async def register(user: UserCreate):
         "mobile": user.mobile,
         "hashed_password": hashed_password,
         "role": "student",
-        "created_at": datetime.utcnow()  # Add timestamp
+        "created_at": datetime.utcnow()
     }
     
     result = await users_collection.insert_one(user_dict)
@@ -45,6 +47,7 @@ async def register(user: UserCreate):
         "role": "student"
     }
 
+# Regular JSON login endpoint for your frontend
 @router.post("/login", response_model=Token)
 async def login(user: UserLogin):
     # Find user by email only
@@ -59,6 +62,39 @@ async def login(user: UserLogin):
 
     # Verify password
     if not verify_password(user.password, db_user["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Generate tokens
+    user_id = str(db_user["_id"])
+    access_token = create_access_token(user_id)
+    refresh_token = create_refresh_token(user_id)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": refresh_token,
+        "role": db_user["role"]
+    }
+
+# OAuth2 compatible endpoint for Swagger UI authorization
+@router.post("/token", response_model=Token)
+async def login_for_swagger(form_data: OAuth2PasswordRequestForm = Depends()):
+    # OAuth2 uses 'username' field, but we treat it as email
+    db_user = await users_collection.find_one({"email": form_data.username})
+    
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Verify password
+    if not verify_password(form_data.password, db_user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect password",
