@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from database import users_collection
 from schemas.user import UserCreate, UserLogin, Token, UserResponse
-from utils.security import hash_password, verify_password, create_access_token, create_refresh_token, get_token_response
+from utils.security import hash_password, verify_password, create_access_token, create_refresh_token
 from bson import ObjectId
 from jose import jwt, JWTError
 from config import settings
 from fastapi.security import OAuth2PasswordBearer
+from datetime import datetime
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -26,7 +27,8 @@ async def register(user: UserCreate):
         "email": user.email,
         "mobile": user.mobile,
         "hashed_password": hashed_password,
-        "role": "student"  # Set role as student for all registrations
+        "role": "student",
+        "created_at": datetime.utcnow()  # Add timestamp
     }
     
     result = await users_collection.insert_one(user_dict)
@@ -36,7 +38,12 @@ async def register(user: UserCreate):
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
 
-    return get_token_response(access_token, refresh_token)
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": refresh_token,
+        "role": "student"
+    }
 
 @router.post("/login", response_model=Token)
 async def login(user: UserLogin):
@@ -63,7 +70,12 @@ async def login(user: UserLogin):
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
 
-    return get_token_response(access_token, refresh_token)
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": refresh_token,
+        "role": db_user["role"]
+    }
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -83,5 +95,6 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return {
         "email": current_user["email"],
         "mobile": current_user["mobile"],
-        "role": current_user["role"]
+        "role": current_user["role"],
+        "created_at": current_user["created_at"]
     }

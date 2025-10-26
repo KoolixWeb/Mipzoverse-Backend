@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator
+from datetime import datetime
 import re
 
 class UserBase(BaseModel):
@@ -27,8 +28,10 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: str | None = None
+    role: str
 
 class UserResponse(BaseModel):
     email: str
     mobile: str
     role: str
+    created_at: datetime
