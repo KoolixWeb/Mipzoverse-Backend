@@ -13,7 +13,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_minutes: int = 10080
     
-
+    smtp_server: str
+    smtp_port: int = 587
+    smtp_username: str
+    smtp_password: str
+    smtp_from_email: str
+    
     # App
     app_name: str = "AuthSystem"
     debug: bool = True
